@@ -1,40 +1,42 @@
-# Diagnose Patterns (보조 문서)
+# Diagnose Patterns (보조 자료)
 
-이 문서는 진단을 위한 **참조용 패턴 모음**입니다.
-여기에 정리되지 않은 문제도, 에이전트는 빌드/실행 로그와 상태 정보,
-`API_SPEC.md`, 그리고 Cloudtype 공식 문서를 바탕으로 추론하여 처리할 수 있습니다.
-새로 확인된 패턴은 이 문서에 추가하면 다음 작업에서 더 빠르게 대응할 수 있습니다.
+이 문서는 SKILL.md 의 실패 대응 절차를 보조하는 **참조용 사례 모음**입니다.
+의사결정의 기반은 SKILL.md 의 원칙입니다.
 
-## 사용 원칙
+- 같은 deployment 의 로그/이벤트로 원인 파악
+- 원인이 명확한 Cloudtype 설정 문제면 옵션을 조정하고 같은 deployment 에 같은 PUT 재호출
+- 자동 재시도는 같은 처방으로 최대 3회
+- 다른 preset 으로 갈아타거나 새 서비스 생성 같은 우회는 사용자 승인 후에만
 
-- **자동 fix 금지** — 근거 없는 추측 변경은 하지 않습니다.
-- **로그와 상태 정보로 원인이 명확한 경우**에 한해 Cloudtype 설정을 수정하고 재배포합니다.
-- **자동 재시도는 최대 3회**까지 수행합니다.
-- **리소스(`cpu`/`memory`/`disk`/`replicas`/`spot`) 자동 조정은 금지**합니다.
-- **코드 수정**은 코드 권한이 있는 워크플로에서만, 사용자 확인을 받은 뒤에 수행합니다.
-- 모든 단계에서 막히면 **사용자가 운영 채널로 문의를 남기도록 안내**합니다.
+여기에 정리되지 않은 패턴은 빌드/실행 로그 / 상태 정보 / API_SPEC / 공식 문서를 바탕으로 추론하여 처리합니다.
+새로 확인된 패턴은 이 문서에 누적하면 다음 작업에서 더 빠르게 대응할 수 있습니다.
 
 ## 빌드 단계 (build logs)
 
 ### `package.json not found` / `COPY ... not found`
-- 원인: 빌드 컨텍스트 루트에 파일이 없음 (대표적으로 monorepo 구조).
-- 해결: `context.git.path` 에 하위 디렉토리 경로 지정 (예: `/backend`).
+- 원인: 빌드 컨텍스트 루트에 파일이 없음 (일반적으로 monorepo 구조)
+- 해결 (설정): `context.git.path` 에 하위 디렉토리 경로 지정 (예: `/backend`)
+- 코드 수정 필요 여부: 없음
 
-### `Module not found`
-- 원인 A: `dependencies` 에 빠진 모듈 → 코드 수정 필요.
-- 원인 B: 런타임 버전 불일치(예: Node ESM/import 문법) → 배포 설정으로 우선 시도 가능.
-  - Node: `options.nodeversion` 조정 또는 dockerfile preset 으로 전환.
-  - Python/Java 등 다른 런타임도 동일하게 **preset 또는 런타임 버전 설정**을 먼저 맞춰봅니다.
+### `Module not found` (빌드 시)
+- 원인 A: `dependencies` 에 빠진 모듈
+- 원인 B: 같은 preset 내 런타임 버전 불일치
+- 해결 (설정): 원인 B 의 경우 `options.nodeversion` 같은 같은 preset 내 버전 옵션을 조정합니다.
+- 코드 수정 필요 여부: 원인 A 의 경우 `package.json` 의 `dependencies` 에 누락 모듈을 추가하고 push 가 필요합니다.
 
 ### `npm ERR! 401 Unauthorized` (private 패키지)
-- `options.npmrc` 에 .npmrc 내용을 주입합니다(토큰 포함 시 시크릿 사용을 권장).
+- 원인: private npm registry 인증
+- 해결 (설정): `options.npmrc` 에 .npmrc 내용을 주입 (auth token 포함)
+- 코드 수정 필요 여부: 없음 (단, .npmrc 토큰은 시크릿화 권장)
 
-### 빌드 명령 불일치 (pnpm / yarn 등)
-- `options.install`, `options.build`, `options.start` 를 프로젝트에 맞춰 명시합니다.
+### 빌드 명령 불일치 (예: pnpm 프로젝트가 yarn 으로 빌드되는 경우)
+- 해결 (설정): `options.install`, `options.build`, `options.start` 를 프로젝트에 맞게 명시
+- 예: `install: "pnpm install"`, `build: "pnpm build"`, `start: "pnpm start"`
 
-### Vite/Webpack 산출물이 노출되지 않음 (소스 HTML 이 그대로 보임)
-- 원인: web preset 의 `docbase` 기본값(`/`) 이 적용되어 있음.
-- 해결: `options.docbase` 를 `/dist` 또는 `/build` 등 빌드 산출물 경로로 지정합니다.
+### Vite / Webpack 빌드 결과가 노출되지 않음 (소스 HTML 그대로 보임)
+- 원인: web preset 의 `docbase` 가 기본값(`/`) 으로 설정됨
+- 해결 (설정): `options.docbase` 를 `/dist` 또는 `/build` 로 지정
+- 코드 수정 필요 여부: 없음
 
 ### 이미지 / 빌드 산출물 5GB 초과 (플랜 제한)
 - Hobby 플랜 기준 이미지 5GB 제한이 적용됩니다.
@@ -42,62 +44,60 @@
   - 더 가벼운 base image 또는 멀티스테이지 빌드 적용
   - `.dockerignore` 정비, 불필요 파일 제외
   - 정적 산출물 분리 또는 번들 분할
-- 위 방법으로 해소되지 않으면 운영 채널로 문의를 안내합니다.
+- 위 방향으로 해소되지 않으면 운영 채널 문의를 안내합니다.
 
 ## 실행 단계 (runtime logs / k8s events)
 
 ### `EADDRINUSE` / `listen EACCES`
-- 원인: 포트 충돌 또는 권한 문제.
-- 해결: `options.ports` 를 앱이 실제로 listen 하는 포트와 일치시키거나,
-  코드가 `process.env.PORT` 를 따르도록 변경하는 방법(코드 측 대응)을 안내합니다.
+- 원인: 포트 충돌 또는 권한 문제
+- 해결 (설정): `options.ports` 를 앱이 실제 listen 하는 포트와 일치시킵니다.
+- 코드가 `process.env.PORT` 를 따르도록 변경하는 방향(코드 측 표준 컨벤션)도 권장 가능합니다.
 
-### CrashLoopBackOff / 컨테이너 즉시 종료
-- 실행 로그로 원인을 세분합니다.
-  - 런타임 의존성 누락 → 코드 수정 필요.
-  - DB 호스트가 `localhost` 또는 하드코딩된 IP → 코드 수정 필요.
-  - 필수 환경변수 누락(`DATABASE_URL` 등) → 설정으로 env 추가.
+### 컨테이너 즉시 종료 (CrashLoopBackOff)
+- 로그를 자세히 살펴 원인을 분류합니다.
+  - `Error: Cannot find module 'xxx'` → 런타임 의존성 누락 (코드 측)
+  - `Error: connect ECONNREFUSED 127.0.0.1:5432` → DB 호스트가 localhost 로 하드코딩됨 (코드 측)
+  - `MissingEnvironmentError: DATABASE_URL` → 환경변수 누락 (설정으로 해결 가능: env 추가)
 
-### `localhost` / `127.0.0.1` / 하드코딩 IP
-- 배포 설정만으로는 해결이 어려우며 코드 수정이 필요합니다.
-- 안내 예시: "환경변수로 분리하거나 같은 stage 내 서비스명으로 변경해 주시기 바랍니다."
+### `localhost` / `127.0.0.1` / 하드코딩된 IP
+- 원인: 코드에 로컬 주소가 하드코딩되어 있음
+- 설정만으로 해결이 어려우며 코드 수정이 필요합니다.
+- 안내 예시: "해당 코드 위치에 `localhost` 가 하드코딩되어 있습니다. 다음 중 하나로 변경해 주시기 바랍니다.
+  1) 환경변수로 분리 (`process.env.DB_HOST`)
+  2) 같은 stage 내 서비스명으로 변경 (예: `postgres-db`)"
 
 ### CORS 에러 (브라우저 콘솔)
-- 프론트엔드 코드 형태에 따라 분기합니다.
-  - `fetch('/api/...')` 상대 경로 → Rewrites 로 해결 가능
-  - `fetch(API_BASE + '/api/...')` env 분기 → Rewrites + env 조정으로 해결 가능
-  - 하드코딩된 URL → 코드 수정 필요
-- 백엔드 CORS 헤더 누락이 원인이면 코드 수정이 필요합니다(미들웨어 추가 등).
+- 코드 형태에 따라 분기합니다.
+  - `fetch('/api/...')` (상대 경로) → Rewrites 추가로 해결 가능
+  - `fetch(API_BASE + '/api/...')` (env 분기) → Rewrites 추가와 함께 env 를 비우거나 백엔드 URL 을 env 로 설정
+  - `fetch('https://hardcoded/api/...')` (하드코딩) → 코드 수정 필요
+- 백엔드의 CORS 헤더 누락이 원인인 경우 코드 수정이 필요합니다 (CORS 미들웨어 추가 등).
 
-### `permission denied` / 파일 시스템 권한
-- dockerfile preset 의 `uid` / `gid` 옵션을 조정합니다.
-- 코드가 root 권한을 가정하지 않도록 변경하는 방향도 함께 안내할 수 있습니다.
-
-### 헬스체크 실패 (`/healthz` 503 등)
-- `options.healthz` 에 실제 헬스체크 경로를 명시합니다.
+### 헬스체크 실패 (응답 없음 또는 status 503 등)
+- 원인: readiness probe 가 root 경로에 GET 요청을 수행하는데 앱에 해당 경로가 없는 경우 등
+- 해결 (설정): `options.healthz` 에 앱의 실제 헬스체크 경로를 명시
 - 부팅이 느린 앱은 `options.initialDelaySeconds` 를 늘립니다.
 
 ### OOM (`OOMKilled`, exit code 137)
-- 자동 조정은 수행하지 않습니다. 현재 사용량 및 잔여 풀을 보고하고,
-  사용자에게 선택지(메모리 증설 / 코드 점검)를 제시합니다.
+- 자동 조정은 수행하지 않습니다. 사용자에게 다음과 같이 보고합니다.
+  - "OOM 이 감지되었습니다. 현재 메모리 X GB, 잔여 풀 Y GB 입니다. 메모리를 증설할까요? 아니면 코드 측 누수 점검을 먼저 진행할까요?"
 
-### DB 연결 실패 (`ECONNREFUSED ...:5432`, `authentication failed`)
-- 같은 stage 내에서는 deployment name 이 hostname 역할을 합니다.
-- env 의 `PGHOST` / `DATABASE_URL` 등을 정리하고 시크릿 참조를 확인합니다.
-- DB 접속 정보가 코드에 하드코딩된 경우 코드 수정이 필요합니다.
+### DB 연결 실패 (`ECONNREFUSED ...:5432`, `authentication failed` 등)
+- 원인 A: hostname 오류 (같은 stage 내에서는 deployment name 이 hostname)
+- 원인 B: 시크릿 누락 또는 잘못된 참조
+- 해결 (설정): env 의 `PGHOST`, `DATABASE_URL` 등을 조정하고 시크릿 참조를 확인합니다.
+- 코드 수정 필요 여부: DB 접속 설정이 코드에 하드코딩된 경우
 
 ## 프로젝트 / 스테이지 부재
 
-- 배포 요청 시 project 가 없으면 **먼저 `POST /project` 로 생성**한 뒤
-  생성된 project 의 main stage 에 배포합니다.
+- 배포 요청 시 project 가 없으면 **먼저 `POST /project` 로 생성**한 뒤 생성된 project 의 main stage 에 배포합니다.
 - stage 가 없는 경우도 동일하게 우선 생성 후 진행합니다.
 
 ## 시크릿 / 삭제 정책
 
 - **시크릿 조회는 스킬에서 수행하지 않습니다.** 기존 시크릿 확인이 필요하면 Cloudtype UI 사용을 안내합니다.
 - **시크릿 쓰기는 항상 `merge: true`** 가 기본입니다.
-  전체 교체(`merge: false`)는 사용자의 명시적 요청이 있고 한 번 더 확인된 경우에만 수행합니다.
-- **삭제(서비스 / 프로젝트 / 스테이지)는 스킬의 자동 액션으로 수행하지 않습니다.**
-  삭제가 필요하면 Cloudtype UI 에서 직접 수행하도록 안내합니다.
+- **삭제(서비스 / 프로젝트 / 스테이지)는 스킬의 자동 액션으로 수행하지 않습니다.** Cloudtype UI 에서 직접 수행하도록 안내합니다.
 
 ## 운영 채널 문의로 안내하는 기준
 

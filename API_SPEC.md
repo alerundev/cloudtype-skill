@@ -20,6 +20,7 @@ API 키만으로 끝까지 처리할 수 있는 작업.
 - 커스텀 도메인 연결 — DNS 등록기관 설정이 사용자에게 필요합니다.
 - **구독 / 결제 / 리소스 구매 일체** — 사용자가 콘솔에서 직접 처리합니다. AI 자동 리소스 증량은 물론, 구독 풀 증설이 필요한 경우도 동일합니다.
 - **자동 리소스 조정** — OOM 또는 응답 지연이 감지되더라도 보고만 수행하며, cpu/memory/disk/replicas/spot 을 자동으로 변경하지 않습니다. 이유: 구독 풀 제약, 다른 서비스 영향 우려, 사용자의 운영 판단 보존.
+- **자동 우회 금지** — 실패 시 다른 preset 으로 갈아타기, 새 deployment 이름으로 별도 서비스 생성, Dockerfile 자동 작성/주입 등은 스킬이 자동으로 수행하지 않습니다. 모두 사용자 승인 후에만 진행합니다.
 - 결제 / 환불 — PG 처리는 사용자 직접
 - **API 키 발급** — 보안 경계상 콘솔 전용
 - GitHub App / OAuth 최초 설치 — 브라우저 동의 필요
@@ -496,9 +497,9 @@ framework preset(node / python 등) 과 달리, **Docker 레벨 제어를 모두
 ```
 
 **활용 패턴**
-- repo 에 Dockerfile 이 없는 프로젝트 → 인라인으로 `dockerfiletext` 를 주입하여 빌드 가능
-- preset 자동 감지가 어려운 비표준 스택에 대체 옵션으로 사용
-- non-root 실행, 특수 셸 사용 등 고급 설정이 필요한 경우 dockerfile preset 전용
+- 사용자가 dockerfile preset 을 명시한 경우에 사용합니다.
+- non-root 실행, 특수 셸 사용 등 고급 설정이 필요한 경우 dockerfile preset 전용 옵션(`uid` / `gid` / `shell` 등)이 활용됩니다.
+- `dockerfiletext` 는 repo 에 Dockerfile 이 없을 때 인라인 방식으로 사용할 수 있는 옵션입니다. **스킬은 해당 내용을 자동으로 생성하지 않습니다.** 이 옵션 사용은 사용자 명시가 필요합니다.
 
 ### Container preset
 

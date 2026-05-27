@@ -1,17 +1,26 @@
 # Cloudtype Skill
 
-이 디렉토리는 다른 에이전트(Claude Code, Cursor, OpenClaw 등)에 그대로 얹어
-**GitHub 저장소 → Cloudtype 배포 → 로그/진단 → 재배포** 전 과정을 자연어로 제어할 수 있도록 하는 스킬 패키지입니다.
+다른 에이전트(Claude Code, Cursor, OpenClaw 등) 에 얹어
+**GitHub 저장소를 Cloudtype 에 배포하고, 실패 시 같은 deployment 의 로그와 설정만으로 해결을 시도**하는 스킬 패키지입니다.
+
+설계 원칙은 단순합니다.
+
+- 배포는 본질적으로 "최소 페이로드 PUT" 한 번
+- 실패하면 **같은 deployment** 의 로그를 보고 옵션만 조정
+- 다른 preset 으로 갈아타거나 새 서비스를 만드는 우회는 사용자 승인 후에만
+- 소스코드 수정은 위치/방향만 안내, 직접 수행하지 않음
+
+자세한 정책은 [`SKILL.md`](./SKILL.md) 를 참조합니다.
 
 ## 구성
 
 ```
 cloudtype/
-├── SKILL.md                  # 에이전트가 따르는 정책/흐름 정의 (진입점)
+├── SKILL.md                  # 에이전트가 따르는 정책/흐름 (진입점)
 ├── API_SPEC.md               # Cloudtype API 명세
 ├── reference/
-│   ├── diagnose-patterns.md  # 빌드/실행 오류 진단 보조 문서
-│   └── state-machine.md      # deployment 상태 머신 정리
+│   ├── diagnose-patterns.md  # 빌드/실행 오류 패턴 (보조 자료)
+│   └── state-machine.md      # deployment 상태 머신
 └── scripts/
     ├── verify.sh             # 환경/인증 검증
     ├── cloudtype_client.py   # HTTP 래퍼 (stdlib only)
@@ -54,18 +63,24 @@ python3 cloudtype/scripts/cloudtype_logs.py build \
 # 3. 시크릿 저장 (기본 merge=true)
 python3 cloudtype/scripts/cloudtype_actions.py put-secrets \
   --scope myspace --project demo --stage main \
-  --secret DB_PASSWORD=<value>
+  --secret ***
 ```
 
 ## 정책 요약 (자세한 내용은 SKILL.md)
 
-- 배포만 수행하는 경우: **소스코드 직접 수정 금지**, 안내만 제공합니다.
-- 코드 작성 권한이 있는 경우: 수정안을 제시하고 사용자 승인 후 수정 → 재배포합니다.
-- 빌드/실행 로그로 원인이 명확한 Cloudtype 설정 수정은 추가 확인 없이 반영합니다.
-- 자동 재시도는 **최대 3회**. 실패가 지속되면 사용자에게 운영 채널 문의를 안내합니다.
-- **시크릿 조회는 UI 에서** 수행합니다. 스킬은 조회하지 않습니다.
-- **삭제(Service / Project / Stage) 는 UI 에서** 수행합니다. 스킬은 자동으로 수행하지 않습니다.
+- **실패는 같은 deployment 안에서** 해결을 시도합니다. 다른 preset 으로 갈아타거나 새 서비스를 만드는 우회는 사용자 승인 후에만 수행합니다.
+- 사용자에게 세세한 사항을 일일이 묻지 않습니다. 다음은 자동 추론합니다.
+  - branch: 명시 없으면 `main`
+  - project: 명시 없으면 repo 이름 (없으면 생성)
+  - stage: 명시 없으면 `main`
+  - deployment 이름: 명시 없으면 repo 이름 (식별자 규칙에 맞게 정규화)
+  - preset: repo 구조에서 한 번 추론 (초기 1회)
+- 같은 이름의 deployment 가 이미 존재하면 배포를 중단하고 사용자에게 확인합니다.
+- 빌드/실행 로그로 원인이 명확한 Cloudtype 설정 수정은 사용자에게 보고한 뒤 같은 PUT 으로 재호출합니다.
+- 자동 재시도는 **같은 처방으로 최대 3회** 입니다.
+- **시크릿 조회 / 삭제(Service / Project / Stage) 는 UI 에서** 수행합니다.
 - 리소스(`cpu` / `memory` / `disk` / `replicas` / `spot`) 자동 조정은 수행하지 않습니다.
+- Dockerfile 자동 생성/주입은 수행하지 않습니다. 사용자가 dockerfile preset 을 명시한 경우에만 사용합니다.
 
 ## 의존성
 
@@ -75,7 +90,7 @@ python3 cloudtype/scripts/cloudtype_actions.py put-secrets \
 
 ## 다른 에이전트에 적용하는 방법
 
-1. 이 `cloudtype/` 디렉토리를 에이전트의 스킬 디렉토리(또는 작업 디렉토리)에 복사합니다.
+1. 이 `cloudtype/` 디렉토리를 에이전트의 스킬 디렉토리 또는 작업 디렉토리에 복사합니다.
 2. 환경변수 `CLOUDTYPE_API_KEY` 를 설정합니다.
-3. 에이전트의 시스템 프롬프트나 도구 설명에 "Cloudtype 관련 작업 시 `cloudtype/SKILL.md` 정책을 따른다"고 명시합니다.
+3. 에이전트의 시스템 프롬프트 또는 도구 설명에 "Cloudtype 관련 작업 시 `cloudtype/SKILL.md` 정책을 따른다" 고 명시합니다.
 4. CLI 가 필요하면 `python3 cloudtype/scripts/cloudtype_actions.py ...` 형태로 호출합니다.
