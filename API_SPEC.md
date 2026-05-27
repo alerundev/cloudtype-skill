@@ -29,10 +29,14 @@ API 키만으로 끝까지 처리할 수 있는 작업.
 
 ## Base URLs
 
-| 환경 | Console | API |
-|---|---|---|
-| Dev | `https://app.cloudtype.dev` | `https://api.cloudtype.dev` |
-| Prod | `https://app.cloudtype.io` | `https://api.cloudtype.io` |
+| Console | API |
+|---|---|
+| `https://app.cloudtype.io` | `https://api.cloudtype.io` |
+
+API base URL 은 환경변수로 오버라이드할 수 있습니다.
+
+- `CLOUDTYPE_API_BASE` — HTTP base URL 오버라이드
+- `CLOUDTYPE_WS_BASE` — WebSocket base URL 오버라이드
 
 ## Authentication
 
@@ -86,7 +90,7 @@ User (uid)
 | GET | `/project/{scope}/{project}/stage/{stage}/cluster` | 클러스터 바인딩 |
 | GET | `/project/{scope}/{project}/stage/{stage}/deployment` | 전체 배포 목록 |
 | GET | `/project/{scope}/{project}/stage/{stage}/events?deployment={name}` | K8s events (Started, Pulled, Failed 등) |
-| GET | `/project/{scope}/{project}/stage/{stage}/secret` | 시크릿 store (응답이 평문이므로 노출 주의) |
+| GET | `/project/{scope}/{project}/stage/{stage}/secret` | 시크릿 store 조회 |
 | PUT | `/project/{scope}/{project}/stage/{stage}/secret` | 시크릿 저장 (아래 섹션 참고) |
 | GET | `/project/{scope}/{project}/stage/{stage}/vars` | 스테이지 레벨 공용 변수 |
 | GET | `/project/{scope}/{project}/stage/{stage}/route` | 스테이지 라우트 |
@@ -355,7 +359,7 @@ PUT  /project/{scope}/{project}/stage/{stage}/secret
 GET 응답 예:
 ```jsonc
 {
-  "my-db-password": "...",    // 평문으로 반환되므로 출력/로깅 시 주의
+  "my-db-password": "...",
   "another-secret": "..."
 }
 ```
@@ -373,7 +377,7 @@ PUT 요청:
 
 ### 시크릿 안전 정책
 
-- **읽기**: 응답이 평문이므로, 사용자에게 출력하거나 로그에 남길 때 주의가 필요합니다.
+- **읽기**: 스킬에서는 시크릿 조회를 수행하지 않습니다. 기존 시크릿 확인이 필요한 경우 Cloudtype 콘솔 사용을 안내합니다.
 - **쓰기(일반)**: 자동으로 `merge: true` 를 강제하여 기존 시크릿이 보존되도록 합니다.
 - **쓰기(전체 교체)**: `merge: false` 는 사용자가 "기존 항목을 모두 삭제하고 새로 작성하겠다"고 명시한 경우에 한해, 한 번 더 확인한 뒤 수행합니다.
 - **이미 존재하는 키 덮어쓰기**: 한 번 확인을 받습니다("이미 `X` 시크릿이 존재합니다. 덮어쓸까요?").

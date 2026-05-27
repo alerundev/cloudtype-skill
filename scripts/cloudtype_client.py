@@ -8,7 +8,7 @@
 
 기본 베이스 URL:
     https://api.cloudtype.io
-    (개발 환경: https://api.cloudtype.dev — CLOUDTYPE_API_BASE 로 오버라이드 가능)
+    (환경변수 CLOUDTYPE_API_BASE 로 오버라이드 가능)
 
 규칙(SKILL.md와 일치):
     - 시크릿 GET 은 제공하지 않는다.
@@ -26,7 +26,6 @@ import urllib.request
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 DEFAULT_BASE = "https://api.cloudtype.io"
-DEV_BASE = "https://api.cloudtype.dev"
 
 
 class CloudtypeError(RuntimeError):

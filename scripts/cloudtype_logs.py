@@ -28,7 +28,6 @@ except Exception:  # pragma: no cover - missing dependency
     websockets = None  # type: ignore
 
 DEFAULT_WS_BASE = "wss://api.cloudtype.io"
-DEV_WS_BASE = "wss://api.cloudtype.dev"
 
 ENDPOINTS = {
     "run": "/project/logs",
