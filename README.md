@@ -10,7 +10,6 @@
 cloudtype/
 ├── SKILL.md                  # 에이전트가 따르는 정책/흐름 정의 (진입점)
 ├── API_SPEC.md               # 검증된 Cloudtype API 명세
-├── RESUME.md                 # 작업 컨텍스트 / 진행 메모
 ├── reference/
 │   ├── diagnose-patterns.md  # 빌드/실행 오류 진단 보조 문서
 │   └── state-machine.md      # deployment 상태 머신 정리
