@@ -1,7 +1,7 @@
 # Deployment Lifecycle — State Machine
 
-> 사용자가 자주 헷갈리는 상태 흐름. v1 스킬의 진단 결정 트리 기반.
-> 운영자(james_cloud17) 검증, 2026-05-26.
+> Cloudtype deployment의 상태 흐름과 에이전트의 진단 절차 정리.
+> SKILL.md의 정책과 함께 읽는 보조 문서.
 
 ## 🔄 정상 흐름
 
@@ -23,7 +23,7 @@ building → error  (빌드에서 깨지면 starting까지 못 감)
 ```
 → **빌드 로그**를 본다. 마지막 ❌ 또는 `Build job failed` 라인 위주.
 
-### 2. starting에서 멈춤 (가장 흔한 사용자 질문!)
+### 2. starting에서 멈춤
 ```
 building → starting → ... (오래 멈춤)
 ```
@@ -53,7 +53,7 @@ building → starting → ... (오래 멈춤)
 status?
 ├── building       → 빌드 로그 따라가기 (보통 자연스럽게 진행)
 ├── error          → 빌드 로그 마지막 ❌ 라인 분석
-├── starting (오래)→ 
+├── starting (오래)→
 │   ├── K8s events에 BackOff 있나?  → 실행 로그에서 크래시 원인
 │   ├── K8s events에 ImagePullBackOff? → 이미지 레지스트리 권한/존재 확인
 │   ├── FailedCreatePodSandBox 반복? → 잠깐 대기 후 재시도 (일시적)
@@ -63,70 +63,46 @@ status?
 └── stopped        → 사용자가 stop 했거나 정책상 멈춤
 ```
 
-## 🔌 readiness vs liveness (사용자가 자주 모름)
+## 🔌 readiness vs liveness
 
-Cloudtype은 K8s를 쓰니까:
-- **Readiness** = "이 컨테이너가 트래픽 받을 준비 됐어?" — 실패하면 ready=0 (running 안 됨)
-- **Liveness** = "살아있어?" — 실패하면 컨테이너 재시작 (BackOff 원인)
+Cloudtype은 K8s 기반이라 두 probe를 함께 본다:
 
-대부분의 `starting → 멈춤` 케이스는 readiness probe 미통과 또는 컨테이너 즉시 크래시.
+- **Readiness** — “이 컨테이너가 트래픽 받을 준비 됐어?” 실패하면 ready=0 (running 안 됨)
+- **Liveness** — “살아있어?” 실패하면 컨테이너 재시작 (BackOff 원인)
 
-## 📋 에이전트가 따라야 할 진단 절차 (v1)
+대부분의 `starting → 멈춤`은 readiness probe 미통과 또는 컨테이너 즉시 크래시.
 
-1. `GET .../deployment/{name}` → 현재 status, ready/replicas
-2. **status에 따라 분기:**
-   - `building` → build logs stream
-   - `error` → build logs (last lines)
-   - `starting` (시간 측정 필요) → 이벤트 + 실행 로그 동시 확인
+## 📋 진단 절차
+
+1. `GET .../deployment/{name}` → 현재 status, ready/replicas 확인
+2. status에 따라 분기:
+   - `building` → build logs 스트리밍
+   - `error` → build logs 마지막 라인 분석
+   - `starting`(시간 측정 필요) → events + 실행 로그 동시 확인
    - `running` but ready=0/N → readiness/port 의심
 3. `GET .../events?deployment={name}` → K8s 이벤트 패턴 매칭
-4. WS `/project/logs` → 마지막 50~200줄 받기, 에러 패턴 스캔
-5. WS `/project/build/logs` → 필요시 (build 단계 의심될 때)
-6. 종합해서 **원인 → 처방** 형태로 사용자에게 안내
+4. WS `/project/logs` → 마지막 50~200줄, 에러 패턴 스캔
+5. WS `/project/build/logs` → 필요 시 (빌드 단계 의심)
+6. 종합해 **원인 → 조치 옵션** 형태로 정리
 
-## 🎯 핵심 원칙 — 스킬의 역할과 한계
+## 🎯 스킬의 역할과 한계
 
-**v1 스킬은 "단서를 깔끔하게 노출" 까지**가 역할.
-"코드 이렇게 고치세요" 같은 코드 처방은 스킬이 하지 않는다.
+이 스킬은 **Cloudtype 쪽 상태와 설정을 다루는 도구**다. 사용자의 소스코드를 보지 않으며,
+코드 수정은 SKILL.md의 정책에 따른다.
 
-### 왜?
-스킬이 붙는 상대 에이전트가 두 종류:
+- **Cloudtype 설정 변경(예: `options.build`, `options.ports`, env, `docbase`, healthz, replicas 등)**
+  은 로그/상태 근거가 명확하면 스킬이 직접 수정 후 재배포한다.
+- **코드 수정**은
+  - 코드 작성 권한이 포함된 워크플로우라면 **수정안을 제시하고 허락을 받은 뒤** 반영하고 재배포한다.
+  - 배포만 담당하는 워크플로우라면 **수정 방향만 안내**하고 코드에 직접 손대지 않는다.
+- 위 과정을 거치고도 동일 실패가 지속되면 운영자에게 문의를 남기도록 안내한다.
 
-1. **주로 "바이브 코딩" 에이전트** (Claude Code, Cursor 등) — 자기가 짠 코드의
-   전체 컨텍스트를 이미 가지고 있음. 스킬이 "이 에러가 났다"만 알려주면,
-   자기 코드를 보고 와서 바로 고친다.
-2. **운영 도움을 받는 사용자** (자기 코드 아님) — 이 경우에도 "어디서 어떤
-   에러가 나는지"를 정확히 알려주면 그 다음은 다른 도구나 운영자가 처리.
+## 진단 결과 권장 출력 (JSON 예시)
 
-즉 **스킬이 아는 건 "클라우드타입 쪽의 상태"**이고,
-**스킬이 모르는 건 "사용자 코드의 내용"**이다.
-
-### 재해석된 원칙
-
-- **로그 라인 인용은 "최소 필요 분량"** — 핵심 에러 메시지 텍스트 자체는
-  중요(`Cannot find module ...`, `connection refused`, `OOMKilled` 등).
-  결정 트리 분기에 근거가 됨.
-- **결정 트리에서 분기점 명시** — "status=starting + BackOff event + Error log
-  패턴" 같이 구체적 단서 조합.
-- **코드 처방은 권장하지 않음** — "package.json 에 prestart 추가하세요" 같은
-  있면 이건 부르는 코딩 에이전트의 몫·. 스킬은 "빌드 결과물에 dist/...
-  없음" 까지만.
-- **하지만 클라우드타입 배포 설정 변경은 스킬이 직접 함** —
-  build command, install command, env, ports, replicas, resources 등은
-  PUT .../deployment 로 동적 수정 가능. 이건 **소스코드 아닌
-  "클라우드타입 쪽 설정"** 이라 스킬이 처리해도 됨.
-  예: "`Cannot find module .../dist/...` + spec의 build 명령 비어있음"
-  패턴이면, 사용자에게 "배포 설정의 build command에 `npm run build`
-  추가해서 재배포해 드릴까요?" 제안 → 동의하면 스킬이 직접 적용.
-- **추측이면 추측이라고 말함** — confidence 명시.
-
-### 대신 제공해야 할 것
-
-```python
-# diagnose() 명령의 이상적 출력
+```jsonc
 {
   "status": "starting",
-  "duration_in_state": "3m 12s",   # 얼마나 멈춰 있는지
+  "duration_in_state": "3m 12s",
   "replicas": "0/1",
   "last_build": {
     "id": "mpm...",
@@ -134,19 +110,22 @@ Cloudtype은 K8s를 쓰니까:
     "commit": "2a9e0c5",
     "image_digest": "sha256:9eb0fc..."
   },
-  "recent_events": [                # K8s events, 액션가능한 것만
+  "recent_events": [
     {"reason": "BackOff", "count": 5, "message": "Back-off restarting failed container"},
     {"reason": "Pulled", "ok": true}
   ],
-  "last_runtime_log_lines": [        # 핵심 에러 부분
+  "last_runtime_log_lines": [
     "Error: Cannot find module '/app/dist/mcp-server.js'",
     "code: 'MODULE_NOT_FOUND'"
   ],
-  "likely_cause_pattern": "container_crash_loop",   # 패턴 레이블만
-  "confidence": "high"
-  # → 이걸 받은 코딩 에이전트가 자기 코드 컨텍스트랑 합쳐서 추론/수정
+  "likely_cause_pattern": "container_crash_loop",
+  "confidence": "high",
+  "suggested_settings_change": {
+    "options.build": "npm run build"
+  }
 }
 ```
 
-즉 **원인 패턴 레이블은 붙이되, "당신의 코드를 이렇게 고치세요"는 하지 않는다.**
-그게 이 스킬을 어떤 에이전트가 쓰더라도 맞게 동작하게 하는 방법.
+- `likely_cause_pattern` / `confidence` 로 분류 근거를 드러내고,
+- `suggested_settings_change` 처럼 **Cloudtype 설정 변경 제안**은 함께 제공할 수 있다.
+- 코드 변경이 필요한 경우엔 위치/이유만 명확히 적고, 적용 권한 여부에 따라 안내 또는 수정 후 재배포로 이어진다.
