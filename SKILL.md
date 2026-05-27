@@ -1,12 +1,6 @@
 ---
 name: cloudtype
 description: "Deploy a GitHub repository to Cloudtype with a minimal payload, then resolve issues by reading the deployment's logs and adjusting its Cloudtype settings."
-homepage: https://docs.cloudtype.io
-metadata:
-  openclaw:
-    emoji: "☁️"
-    requires:
-      env: ["CLOUDTYPE_API_KEY"]
 ---
 
 # Cloudtype
