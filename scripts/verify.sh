@@ -4,9 +4,8 @@
 # 사용법:
 #   bash cloudtype/scripts/verify.sh
 #
-# 환경변수 (우선순위):
-#   CLOUDTYPE_API_KEY      (운영용 표준)
-#   CLOUDTYPE_TESTAPIKEY   (테스트/호환)
+# 환경변수:
+#   CLOUDTYPE_API_KEY      (필수)
 #
 # 종료 코드:
 #   0 = OK
@@ -16,14 +15,14 @@
 set -euo pipefail
 
 API="${CLOUDTYPE_API_BASE:-https://api.cloudtype.io}"
-TOK="${CLOUDTYPE_API_KEY:-${CLOUDTYPE_TESTAPIKEY:-}}"
+TOK="${CLOUDTYPE_API_KEY:-}"
 
 echo "=== Cloudtype skill — environment check ==="
 echo "API base : $API"
 echo
 
 if [ -z "$TOK" ]; then
-  echo "❌ API key 환경변수가 없습니다 (CLOUDTYPE_API_KEY 또는 CLOUDTYPE_TESTAPIKEY)."
+  echo "❌ API key 환경변수가 없습니다 (CLOUDTYPE_API_KEY)."
   exit 1
 fi
 echo "✅ API key 환경변수 존재 (길이: ${#TOK})"
@@ -32,7 +31,7 @@ echo
 echo "=== JWT payload ==="
 python3 - <<'PY' || true
 import base64, json, os, sys
-tok = os.environ.get('CLOUDTYPE_API_KEY') or os.environ.get('CLOUDTYPE_TESTAPIKEY') or ''
+tok = os.environ.get('CLOUDTYPE_API_KEY') or ''
 parts = tok.split('.')
 if len(parts) != 3:
     print('  (not a JWT)'); sys.exit(0)

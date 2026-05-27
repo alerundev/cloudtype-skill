@@ -4,8 +4,7 @@
 표준 라이브러리만 사용하므로 외부 의존성 설치가 필요 없다.
 
 환경변수:
-    CLOUDTYPE_API_KEY   (우선)
-    CLOUDTYPE_TESTAPIKEY (대체, 호환 목적)
+    CLOUDTYPE_API_KEY   (필수)
 
 기본 베이스 URL:
     https://api.cloudtype.io
@@ -41,10 +40,10 @@ class CloudtypeError(RuntimeError):
 
 
 def _resolve_token(explicit: Optional[str]) -> str:
-    tok = explicit or os.environ.get("CLOUDTYPE_API_KEY") or os.environ.get("CLOUDTYPE_TESTAPIKEY")
+    tok = explicit or os.environ.get("CLOUDTYPE_API_KEY")
     if not tok:
         raise RuntimeError(
-            "Cloudtype API key not found. Set CLOUDTYPE_API_KEY (or CLOUDTYPE_TESTAPIKEY)."
+            "Cloudtype API key not found. Set CLOUDTYPE_API_KEY."
         )
     return tok
 

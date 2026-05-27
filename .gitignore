@@ -6,3 +6,7 @@ __pycache__/
 *.log
 .vscode/
 .idea/
+
+# 작업용 데모 프로젝트/캐프처 (skill 자체에는 필요 없음)
+demo-*/
+captures/

@@ -13,10 +13,10 @@
 
 사용 예:
     python3 cloudtype_actions.py whoami
-    python3 cloudtype_actions.py ensure-project --scope <scope> --name <project>
-    python3 cloudtype_actions.py deploy --scope <scope> --project <project> \\
+    python3 cloudtype_actions.py ensure-project --scope myspace --name my-project
+    python3 cloudtype_actions.py deploy --scope myspace --project my-project \\
         --stage main --name web --app web --preset html \\
-        --git https://github.com/<owner>/<repo>.git --branch main \\
+        --git https://github.com/alerundev/demo-fruit-shop.git --branch main \\
         --option docbase=/ --option spa=true --option ports=8080
 """
 

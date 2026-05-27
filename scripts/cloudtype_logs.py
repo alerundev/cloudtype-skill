@@ -38,10 +38,10 @@ ENDPOINTS = {
 
 
 def _resolve_token(explicit: Optional[str]) -> str:
-    tok = explicit or os.environ.get("CLOUDTYPE_API_KEY") or os.environ.get("CLOUDTYPE_TESTAPIKEY")
+    tok = explicit or os.environ.get("CLOUDTYPE_API_KEY")
     if not tok:
         raise SystemExit(
-            "Cloudtype API key not found. Set CLOUDTYPE_API_KEY (or CLOUDTYPE_TESTAPIKEY)."
+            "Cloudtype API key not found. Set CLOUDTYPE_API_KEY."
         )
     return tok
 
