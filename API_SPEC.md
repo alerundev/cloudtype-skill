@@ -123,10 +123,14 @@ Cloudtype 은 선구독 모델로, 리소스 풀을 먼저 확보한 뒤 그 안
 | GET | `/scope/{scope}/cluster/{cluster}` | 클러스터 상세 |
 
 **주요 키 (limit / available 공통)**
-- `cpu`, `memory`, `disk`, `running` — 구독 풀(stable) 총량/잔여량 (메모리/디스크 단위: GB). 구독 안 한 스페이스는 모두 `0`.
-- `spot.cpu`, `spot.memory`, `spot.disk`, `spot.running` — 프리티어 풀 총량/잔여량. 카드 등록 스페이스는 보통 1GB / 1GB.
-- `maxReplicas`, `maxCPUPerService`, `maxMemoryPerService`, `maxDiskPerService` — 서비스 1개당 제약 (실질 한도는 `available` 이하). 프리티어 풀은 `spot.maxCPUPerService` 등 별도 키.
-- `service`, `servicePerStage`, `project`, `stage` — 개수 제약
+- `cpu`, `memory`, `disk` — 구독 풀(stable) 리소스 총량/잔여량 (메모리/디스크 단위: GB). 구독 안 한 스페이스는 모두 `0`.
+- `spot.cpu`, `spot.memory`, `spot.disk` — 프리티어 풀 리소스 총량/잔여량. 카드 등록 스페이스는 보통 1GB / 1GB.
+- `running` / `spot.running` — 풀별 **동시 실행 가능 서비스 수**. `0` 이면 해당 풀로 추가 배포 불가.
+- `maxReplicas` / `spot.maxReplicas` — 한 서비스 안의 replica 수 한도. `0` 이면 해당 풀로 배포 불가.
+- `maxCPUPerService`, `maxMemoryPerService`, `maxDiskPerService` (`spot.*` 계열 동일) — 서비스 1개당 사양 상한.
+- `service` — 스페이스 전체 서비스 수 잔여 (풀 공통). `0` 이면 어느 풀로도 추가 배포 불가.
+- `servicePerStage` — stage 당 서비스 수 잔여 (풀 공통).
+- `project`, `stage` — project/stage 개수 제약
 - `features` — 스페이스에서 추가로 활성화된 feature 목록 (예: `app:container`, `app:dockerfile`). **기본 preset (postgresql/redis/web/node 등) 의 가용 여부와는 무관**하며, 이 배열에 없다고 해당 preset 을 스페이스에서 못 쓰는 것으로 판단하지 마세요.
 - `ephemeral.*` — 다른 노드 타입의 별도 풀
 - `maxImageSize`, `logRetention`, `deploymentRetention` 등
