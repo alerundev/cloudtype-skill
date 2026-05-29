@@ -698,6 +698,8 @@ Body: {"scope": "myspace", "name": "test", "displayName": null, "cluster": "gke-
 
 **주의**: vue / vite 계열은 `docbase` 기본값이 `/` 이므로, 산출물이 아닌 repo 루트의 `index.html`(소스 원본)이 서빙됩니다. **반드시 `docbase: "/dist"` 명시가 필요합니다.**
 
+**Framework preset 의 선택 옵션**: `node` / `python` 계열을 포함한 framework preset 은 web preset 과 동일하게 `healthz` (헬스체크 HTTP 경로) 와 `initialDelaySeconds` (헬스체크 시작 전 대기 초) 을 선택적으로 받습니다. 명시 없으면 서버 디폴트로 동작하며, 익숙한 사용자가 직접 조정하는 어디부터입니다.
+
 ## Multi-deployment 내부 통신
 
 같은 `stage` 내 deployment 끼리는 **deployment name 이 그대로 내부 hostname** 으로 동작합니다.
