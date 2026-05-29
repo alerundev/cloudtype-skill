@@ -143,13 +143,24 @@ Cloudtype 은 선구독 모델로, 리소스 풀을 먼저 확보한 뒤 그 안
 
 ### Catalog
 
+Preset / framework / DB 등 Cloudtype 에 배포 가능한 모든 `app` 의 마스터 카탈로그입니다. 스킬은 이 다섯 엔드포인트로 이름/옵션/리소스를 알아내며, 사전 카탈로그를 본문에 박아두지 않습니다.
+
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/app/presets` | App 템플릿 (약 100여 개) |
-| GET | `/app/presets?offset=0&limit=200` | 페이지네이션 |
-| GET | `/app` | 전체 앱 카탈로그 (대용량) |
-| GET | `/app/metadata` | 앱 메타데이터 |
-| GET | `/app/categories` | 카테고리 (현재 null 반환) |
+| GET | `/app?limit=300` | 전체 카탈로그 마스터 (190개안팜, framework / DB / 템플릿 구분 없이 모두 포함). preset 이름 확정용. |
+| GET | `/app/{name}` | 단일 preset 세부. **`stat.schema`** (JSON Schema 형식 옵션 명세), **`stat.resources`** (`cpu`/`memory`/`disk` 각각 `min` / `initial`) 포함. 옵션 채움에 사용. |
+| GET | `/app/presets` | 프론트엔드 템플릿 만 추린 목록 (react/vue/angular 등, 약 100여 개). |
+| GET | `/app/metadata` | preset 메타 (카테고리, 버전 목록, `context` 요구 등). 버전 매칭에 유용. |
+| GET | `/app/categories` | 카테고리 이름 배열 (예: `["frontend", "javascript", "language", ...]`). 매칭 키워드 고르는 데 보조. |
+
+**활용 패턴**
+
+1. 배포 직전에 `/app?limit=300` 으로 전체 마스터를 받아 세션 동안 캐시. 사용자 요청 / repo 신호를 `name` / `displayName` / `categories` 로 매칭.
+2. preset 이 정해지면 `/app/{name}` 으로 세부 조회.
+   - `stat.schema.required` 의 옵션만 PUT 의 `options` 에 포함. 명시 없는 필수는 `default` 값 또는 자동 생성값.
+   - 스키마에 없는 옵션 이름을 LLM 상식으로 박지 않습니다.
+   - `attrs.type == "password"` 또는 이름이 `*password*` / `*secret*` / `*token*` / `*key*` 인 옵션은 stage secret store 에 저장 후 `secret` 참조로 연결.
+3. `stat.resources.initial` 은 preset 의 권장 초기 사양입니다. 스킬의 기본 정책은 "사용자 명시 없으면 `resources` 상세 생략 → 서버 디폴트" 이므로 이 값을 잡의로 박을 필요는 없습니다. 풀 선택 후 가용량 판단 (`/resource/available`) 이 부족하면 [리소스 부족](#리소스-부족) 안내 흐름을 따릅니다.
 
 ### GitHub 연동 정책
 

@@ -97,17 +97,40 @@ GitHub 저장소를 Cloudtype 에 배포하고, 문제가 발생하면 **같은 
 | project | 명시 없으면 repo 이름. 해당 project 가 없으면 생성 (`POST /project`) |
 | stage | 명시 없으면 `main` |
 | deployment 이름 | 명시 없으면 **repo 이름** (대문자 → 소문자, 언더스코어 → 하이픈 등 Cloudtype 식별자 규칙에 맞게 정규화) |
-| preset | repo 구조로 추론 (초기 1회). 사용자가 명시한 경우 그것을 우선. |
 | 기타 옵션 | 사용자가 명시한 항목만 PUT 에 포함하고 나머지는 서버 디폴트에 맡깁니다. |
 
-**preset 초기 추론 (1회만)**
-- `package.json` → Node 계열
-- `requirements.txt` → Python 계열
-- `Dockerfile` 이 존재 → dockerfile preset
-- 정적 프론트엔드 → web preset
-- DB → 사용자 명시 시 `<engine>@<ver>`
+### Preset 추론
 
-> 이 추론은 **최초 배포 시점 한 번** 만 사용합니다. 실패 후 다른 preset 으로 갈아타는 근거로 사용하지 않습니다.
+배포 직전에 `GET /app?limit=300` 으로 가능한 preset 마스터 목록을 받아옵니다. 세션 동안 1회 캐시.
+
+사용자 요청 또는 repo 구조에서 preset 후보를 도출한 뒤 마스터 목록과 매칭합니다.
+
+- 사용자 명시 ("Java", "Spring Boot", "MariaDB", "MongoDB", "PHP", "Laravel", "Rust", "Bun" 언급 등) → 마스터의 `name` / `displayName` / `categories` 와 매칭.
+- repo 구조 신호 (사용자 명시가 없을 때만):
+  - `package.json` → node 계열
+  - `requirements.txt` / `pyproject.toml` → python 계열
+  - `pom.xml` / `build.gradle` → java / springboot 계열
+  - `Cargo.toml` → rust 계열
+  - `composer.json` → php 계열
+  - `Dockerfile` → dockerfile preset
+  - 정적 프론트엔드 → web preset
+
+후보가 마스터 목록에 없으면 사용자에게 알립니다 — "Cloudtype 이 X 를 지원하지 않습니다." 임의로 가까운 다른 preset 으로 갈아타지 마세요.
+
+DB 가 필요한데 사용자가 종류를 명시하지 않은 경우는 합리적인 디폴트로 진행합니다 (예: `postgresql`). 완료 보고 시 선택한 종류를 명시합니다.
+
+preset 추론은 **최초 배포 시점 한 번** 만 사용합니다. 실패 후 다른 preset 으로 갈아타는 근거로 사용하지 않습니다.
+
+### Preset 옵션 채움
+
+preset 이 확정되면 `GET /app/{preset}` 으로 옵션 스키마를 받습니다 (`stat.schema`, JSON Schema 형식).
+
+- 스키마의 `required` 목록의 옵션만 PUT 의 `options` 에 채웁니다.
+- 사용자가 명시한 옵션은 그대로 사용. 명시 없는 필수 옵션은 스키마의 `default` 값을, `default` 가 없으면 합리적인 자동 생성 값 (예: `*password*` 류는 무작위 강한 문자열) 을 채웁니다.
+- 필수가 아닌 옵션은 서버 디폴트에 맡깁니다.
+- 스키마에 없는 옵션을 LLM 상식으로 추가하지 않습니다.
+
+비밀번호 / 시크릿류 옵션은 자동 생성 후 stage secret store 에 저장하고 deployment env 에서는 `secret` 참조로 연결합니다. PUT 페이로드에 평문으로 넣지 않습니다.
 
 ---
 
