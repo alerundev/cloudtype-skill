@@ -418,6 +418,42 @@ PUT 요청:
 
 두 형태는 한 배열 안에 혼용 가능합니다. env 이름과 secret 키 이름은 동일할 필요가 없으나, 가독성을 위해 일치시키는 것을 권장합니다.
 
+### ⚠️ 시크릿 참조 규칙 (반드시 숙지)
+
+`{"secret": "<키>"}` 형태의 **시크릿 참조 객체는 자리 의존적**입니다. 잘못된 자리에 넣으면 PUT 은 200 으로 통과하고 배포도 "성공"으로 보이지만, 곧 서비스가 `stopped` 로 전환되며 `[ServiceError] secret value must be a string` 이 발생합니다.
+
+| 자리 | 허용되는 값 |
+|---|---|
+| `options.env[]` / `options.buildenv[]` 항목 | 평문 (`"value": "..."`) **또는** 시크릿 참조 (`"secret": "..."`) |
+| 그 외 모든 `options.*` 필드 (preset 옵션 전부) | **plain 값만** (string / number / boolean). 객체 금지. |
+
+이유: `options.env[]` 는 Cloudtype 이 배포 시점에 secret store 에서 풀어 컨테이너 ENV 로 주입하는 경로입니다. 반면 그 외 `options.*` 필드는 Cloudtype 서버가 직접 소비하는 값이라 참조 객체를 풀지 못합니다.
+
+❌ **잘못된 예 — preset / 필드 이름이 무엇이든 동일하게 실패합니다**
+```jsonc
+{"options": {"rootpassword":  {"secret": "my-db-password"}}}  // postgresql / mariadb / mongo
+{"options": {"rootpw":        {"secret": "my-db-password"}}}  // mysql
+{"options": {"requirepass":   {"secret": "my-redis-pass"}}}   // redis
+{"options": {"adminPassword": {"secret": "..."}}}             // 그 외 어떤 preset 도 동일
+```
+
+✅ **올바른 패턴 (DB 배포)**
+```jsonc
+// 1) DB preset 의 password 자리에는 plain 문자열을 직접 넣는다
+{"options": {"rootpassword": "QyaKsJVP2Qn4w5poSEe9sbqbeWY"}}
+
+// 2) 같은 평문을 stage secret store 에도 저장 (merge: true)
+PUT .../stage/{stage}/secret
+{"secrets": {"DB_PASSWORD": "QyaKsJVP2Qn4w5poSEe9sbqbeWY"}, "merge": true}
+
+// 3) 앱 서비스의 env[] 에서는 그 시크릿을 참조로 쓴다
+{"options": {"env": [
+  {"name": "DB_PASSWORD", "secret": "DB_PASSWORD"}
+]}}
+```
+
+이 규칙은 **모든 preset / 모든 필드에 동일하게** 적용됩니다. 필드 이름을 외울 필요 없이 "`{"secret":...}` 은 `env[]`/`buildenv[]` 안에서만" 하나만 기억하면 됩니다.
+
 ### 자동 시크릿 이전 정책 (권장)
 
 사용자가 env 를 평문으로 전달하는 경우 키 이름을 기반으로 자동 분류합니다.
@@ -579,8 +615,8 @@ framework preset(node / python 등) 과 달리, **Docker 레벨 제어를 모두
   "name": "postgresql",
   "app": "postgresql@16",
   "options": {
-    "rootusername": "root",          // → POSTGRES_USER
-    "rootpassword": "<secret>",      // → POSTGRES_PASSWORD
+    "rootusername": "root",          // → POSTGRES_USER (plain string)
+    "rootpassword": "<plain-password-string>",  // → POSTGRES_PASSWORD. plain 문자열만 허용, {"secret":...} 객체 X
     "database":     "<dbname>",      // → POSTGRES_DB
     "config":       "<conf text>",   // 선택 (postgresql.conf 형식)
     "tz":           "Asia/Seoul"     // 선택 (TZ env 로 매핑)

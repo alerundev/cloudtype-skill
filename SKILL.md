@@ -132,7 +132,19 @@ preset 이 확정되면 `GET /app/{preset}` 으로 옵션 스키마를 받습니
 - 필수가 아닌 옵션은 서버 디폴트에 맡깁니다.
 - 스키마에 없는 옵션을 LLM 상식으로 추가하지 않습니다.
 
-비밀번호 / 시크릿류 옵션은 자동 생성 후 stage secret store 에 저장하고 deployment env 에서는 `secret` 참조로 연결합니다. PUT 페이로드에 평문으로 넣지 않습니다.
+비밀번호 / 시크릿류 옵션은 자동 생성 후 stage secret store 에 저장합니다. 어디에 어떤 형태로 넣는지는 자리마다 다릅니다 — 아래 "시크릿 참조 규칙" 을 반드시 따르세요.
+
+### 🔐 시크릿 참조 규칙 (자리별로 다름, 헷갈리지 말 것)
+
+`{"secret": "<키>"}` 형태의 **참조 객체는 오직 `options.env[]` / `options.buildenv[]` 배열 항목의 `value` 자리에서만** 동작합니다.
+그 외 모든 `options.*` 필드는 **plain 값** (string / number / boolean) 만 허용됩니다 — 객체를 넣으면 Cloudtype 서버가 풀지 못합니다.
+
+| 자리 | 허용 형태 | 비고 |
+|---|---|---|
+| `options.env[]` / `options.buildenv[]` 항목 | `{"name":"X","value":"plain"}` **또는** `{"name":"X","secret":"<키>"}` | Cloudtype 이 store 에서 풀어 ENV 주입 |
+| 그 외 모든 `options.*` 필드 (preset 옵션: `rootpassword`, `rootusername`, `database`, mysql 의 `rootpw`, redis 의 `requirepass`, mongo 의 `rootpassword` 등) | **plain 값만** | 서버가 그대로 소비 — 객체 넣으면 deploy 후 `[ServiceError] secret value must be a string` 으로 stopped 됨 |
+
+→ DB preset 의 `rootpassword` 같은 자리에는 **생성한 평문을 그대로** 넣고, 같은 평문을 stage secret store 에도 저장한 뒤, 그 시크릿 키를 **앱 서비스의 `env[]`** 에서 `{"secret":"..."}` 로 참조하는 것이 권장 패턴입니다. (자세한 형태와 예시는 API_SPEC.md "시크릿 참조 규칙" 참고)
 
 ---
 
